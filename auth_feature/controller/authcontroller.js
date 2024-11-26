@@ -1,6 +1,7 @@
 const authModel = require("../model/authmodel");
 const bcrypt=require('bcrypt');
 const jwt = require("jsonwebtoken");
+const amqp = require('amqplib');
 
   const userRegister = async (req, res) => {
     try {
@@ -130,37 +131,78 @@ const jwt = require("jsonwebtoken");
     }
   };
 
-  const userDetail = async (req, res) => {
-    try {
-      const {user_id}=req.params;
+
+ 
+  // const userDetail = async (req, res) => {
+  //   try {
+  //     const {user_id}=req.params;
 
     
-      const user = await authModel
-        .findOne({ _id: user_id })  
-      if (!user) {
-        return res.status(400).json({
-          success: false,
-          message: "user not found",
-        });
-      }
+  //     const user = await authModel
+  //       .findOne({ _id: user_id })  
+  //     if (!user) {
+  //       return res.status(400).json({
+  //         success: false,
+  //         message: "user not found",
+  //       });
+  //     }
   
       
-      return res.status(200).json({
-        success: true,
-        message: "User Login Successfully",
-        data: user,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
-    }
-  };
+  //     return res.status(200).json({
+  //       success: true,
+  //       message: "User Login Successfully",
+  //       data: user,
+  //     });
+  //   } catch (error) {
+  //     return res.status(500).json({
+  //       success: false,
+  //       message: "Internal server error",
+  //     });
+  //   }
+  // };
+
+  async function connectRabbitMQ() {
+    const connection = await amqp.connect('amqps://pthlflcr:jskrT_kI4Q153sKMR-2HuAfmZJUqaq1l@puffin.rmq2.cloudamqp.com/pthlflcr');
+    const channel = await connection.createChannel();
+    const queue = 'userDetailQueue'; // Define a queue for user detail requests
+  
+    await channel.assertQueue(queue, {
+      durable: false,
+    });
+  
+    console.log('Waiting for messages in queue:', queue);
+  
+    channel.consume(queue, async (msg) => {
+      if (msg !== null) {
+        const user_id = msg.content.toString(); // The user_id sent by the producer
+  
+        try {
+          // Fetch the user details from your database
+          const user = await authModel.findOne({ _id: user_id });
+  
+          if (user) {
+            // Send the user detail response back (you could also publish to another queue or use HTTP)
+            console.log('User details fetched for:', user_id);
+            channel.sendToQueue(msg.properties.replyTo, Buffer.from(JSON.stringify(user)), {
+              correlationId: msg.properties.correlationId, // Attach the correlation ID
+            });
+          } else {
+            console.log('User not found:', user_id);
+          }
+        } catch (error) {
+          console.error('Error fetching user:', error);
+        }
+  
+        channel.ack(msg); // Acknowledge the message
+      }
+    });
+  }
+  
+  connectRabbitMQ().catch(console.error);
 
   
   module.exports={
     userRegister,
     userLogin,
-    userDetail
+    // userDetail
   }

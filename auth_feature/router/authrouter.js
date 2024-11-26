@@ -12,7 +12,7 @@ authRouters.post("/userRegister", authController.userRegister);
 // User login route
 authRouters.post("/userLogin", authController.userLogin);
 
-authRouters.get("/userDetail/:user_id", authController.userDetail);
+// authRouters.get("/userDetail/:user_id", authController.userDetail);
 
 
 module.exports=authRouters;

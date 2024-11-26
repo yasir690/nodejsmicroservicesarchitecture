@@ -10,7 +10,7 @@ const postRouters = express.Router();
 postRouters.post("/addpost",auth, postController.addpost);
 
 // User login route
-postRouters.get("/getpost",auth, postController.getpost);
+postRouters.get("/getpost/:user_id", postController.getpost);
 
 
 module.exports=postRouters;
